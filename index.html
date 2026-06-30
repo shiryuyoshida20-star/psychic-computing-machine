@@ -326,7 +326,7 @@
   <header>
     <div class="eyebrow">PLAIN TEXT BUNDLER</div>
     <h1>ひとまとめ便</h1>
-    <p>iPhoneの「ファイル」アプリにある文章をまとめて読み込み、タグで整理して、ワンタップで送る。<br>コピーは常にプレーンテキストのみ。内容は自動保存され、閉じても消えません。</p>
+    <p>iPhoneの「ファイル」アプリにあるテキスト・PDFをまとめて読み込み、タグで整理して、ワンタップで送る。<br>コピーは常にプレーンテキストのみ。内容は自動保存され、閉じても消えません。</p>
   </header>
 
   <div class="toolbar">
@@ -344,13 +344,13 @@
     </button>
     <span class="count-chip" id="countChip">0件</span>
   </div>
-  <input type="file" id="fileInput" multiple accept=".txt,.md,.csv,.log,.json,text/plain">
+  <input type="file" id="fileInput" multiple accept=".txt,.md,.csv,.log,.json,.pdf,text/plain,application/pdf">
 
   <div class="filter-bar" id="filterBar"></div>
 
   <div id="list"><div class="loading">読み込み中…</div></div>
 
-  <footer>内容・タグ・並び順は自動的に保存されます<br>同じファイルを再度読み込んでも二重には追加されません</footer>
+  <footer>内容・タグ・並び順は自動的に保存されます<br>同じファイルを再度読み込んでも二重には追加されません<br>スキャンのみのPDF（画像PDF）は文字を取得できない場合があります</footer>
 </div>
 
 <div class="seal-wrap">
@@ -366,8 +366,31 @@
 
 <datalist id="tagSuggestions"></datalist>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
 const STORAGE_KEY = 'hitomatome:blocks';
+
+if(window['pdfjsLib']){
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+
+function isPdf(file){
+  return file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+}
+
+async function extractPdfText(file){
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  let text = '';
+  for(let p = 1; p <= pdf.numPages; p++){
+    const page = await pdf.getPage(p);
+    const content = await page.getTextContent();
+    const pageText = content.items.map(item => item.str).join(' ').replace(/\s+/g, ' ').trim();
+    text += pageText + '\n\n';
+  }
+  return text.trim();
+}
+
 
 let blocks = [];
 let idSeed = 1;
@@ -606,7 +629,7 @@ function renderList(){
     listEl.innerHTML = `
       <div class="empty">
         <strong>まだ何もありません</strong>
-        「ファイルから読み込む」でiPhoneの文章ファイルを複数選ぶか、<br>
+        「ファイルから読み込む」でiPhoneの文章・PDFを複数選ぶか、<br>
         「空のメモを追加」で直接貼り付けてください。
       </div>`;
     return;
@@ -714,10 +737,17 @@ document.getElementById('addFromFiles').addEventListener('click', () => fileInpu
 fileInput.addEventListener('change', async (e) => {
   const files = Array.from(e.target.files || []);
   if(files.length === 0) return;
-  let loaded = 0, skipped = 0;
+
+  if(files.some(isPdf)) showToast('PDFを解析中…');
+
+  let loaded = 0, skipped = 0, empty = 0;
   for(const file of files){
     try{
-      const text = await file.text();
+      const text = isPdf(file) ? await extractPdfText(file) : await file.text();
+      if(!text || !text.trim()){
+        empty++;
+        continue;
+      }
       const fp = file.name + '::' + hashStr(text);
       if(blocks.some(b => b.fingerprint === fp)){
         skipped++;
@@ -725,16 +755,17 @@ fileInput.addEventListener('change', async (e) => {
       }
       addBlock({ title: stripExt(file.name), content: text, fingerprint: fp }, false);
       loaded++;
-    }catch(err){ /* skip unreadable file */ }
+    }catch(err){
+      empty++;
+    }
   }
   fileInput.value = '';
-  if(loaded > 0 && skipped > 0){
-    showToast(`${loaded}件読み込み（${skipped}件は重複でスキップ）`);
-  }else if(loaded > 0){
-    showToast(`${loaded}件読み込みました`);
-  }else if(skipped > 0){
-    showToast(`すべて既に追加済みでした（${skipped}件）`);
-  }
+
+  const parts = [];
+  if(loaded > 0) parts.push(`${loaded}件読み込み`);
+  if(skipped > 0) parts.push(`${skipped}件は重複でスキップ`);
+  if(empty > 0) parts.push(`${empty}件は文字を取得できず`);
+  showToast(parts.length ? parts.join(' / ') : '読み込めるファイルがありませんでした');
 });
 
 clearAllBtn.addEventListener('click', () => {

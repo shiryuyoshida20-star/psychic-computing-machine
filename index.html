@@ -164,11 +164,10 @@
   }
   .search-clear:hover{ color:var(--seal); }
 
-  .title-input[readonly], textarea.content[readonly]{
+  textarea.content[readonly]{
     color:var(--ink);
     cursor:default;
   }
-  .title-input[readonly]::placeholder{ opacity:0; }
 
   .empty{
     border:1.5px dashed var(--line);
@@ -209,16 +208,69 @@
     display:flex; align-items:center; justify-content:center;
     flex:none;
   }
-  .title-input{
+  .title-display{
     flex:1; min-width:0;
-    border:none; background:transparent;
+    border:none; background:transparent; cursor:pointer;
     font-family:"Noto Sans JP",sans-serif;
     font-weight:500; font-size:14.5px;
     color:var(--ink);
-    outline:none;
-    padding:4px 2px;
+    padding:6px 4px;
+    display:flex; align-items:center; gap:4px;
+    text-align:left;
+    -webkit-tap-highlight-color:transparent;
   }
-  .title-input::placeholder{ color:var(--ink-soft); font-weight:400; }
+  .title-display:hover{ color:var(--accent); }
+  .title-display .title-text{
+    overflow:hidden; white-space:nowrap; text-overflow:ellipsis;
+  }
+  .title-placeholder{ color:var(--ink-soft); font-weight:400; }
+  .title-chevron{ width:13px; height:13px; flex:none; color:var(--ink-soft); opacity:.55; }
+
+  .detail-view{
+    position:fixed; inset:0; z-index:55;
+    background:var(--paper);
+    display:flex; flex-direction:column;
+    padding-top:env(safe-area-inset-top);
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  .detail-view[hidden]{ display:none; }
+  .detail-bar{
+    display:flex; align-items:center; gap:6px;
+    padding:10px 14px;
+    border-bottom:1px solid var(--line);
+    flex:none;
+  }
+  .detail-idx{
+    font-family:"JetBrains Mono",monospace; font-size:11px; color:var(--ink-soft);
+  }
+  .detail-bar-spacer{ flex:1; }
+  .detail-body{
+    flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch;
+    padding:18px 22px 16px;
+    max-width:640px; width:100%; margin:0 auto;
+    box-sizing:border-box;
+  }
+  .detail-title-input{
+    width:100%; border:none; outline:none; background:transparent;
+    font-family:"Shippori Mincho",serif; font-weight:700; font-size:25px;
+    color:var(--ink); padding:4px 0 12px; line-height:1.35;
+  }
+  .detail-title-input::placeholder{ color:var(--ink-soft); font-weight:500; }
+  #detailTagRow{ padding:0 0 16px; }
+  .detail-content{
+    width:100%; min-height:46vh; border:none; outline:none; resize:none;
+    font-family:"JetBrains Mono",monospace; font-size:14.5px; line-height:1.8;
+    color:var(--ink); background:transparent;
+  }
+  .detail-content::placeholder{ color:#B9AF9C; font-family:"Noto Sans JP",sans-serif; }
+  .detail-foot{
+    flex:none; padding:10px 22px calc(14px + env(safe-area-inset-bottom));
+    border-top:1px solid var(--line);
+    max-width:640px; width:100%; margin:0 auto;
+    box-sizing:border-box;
+    display:flex; justify-content:flex-end;
+  }
+
   .icon-btn{
     border:none; background:transparent; cursor:pointer;
     color:var(--ink-soft);
@@ -380,6 +432,10 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
       空のメモを追加
     </button>
+    <button class="btn ghost" id="pasteClipboard">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
+      貼り付けて新規メモ
+    </button>
     <button class="btn ghost" id="clearAll">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6"/></svg>
       全部削除
@@ -413,6 +469,33 @@
 </div>
 
 <datalist id="tagSuggestions"></datalist>
+
+<div class="detail-view" id="detailView" hidden>
+  <div class="detail-bar">
+    <button class="icon-btn" id="detailBack" title="戻る">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+    </button>
+    <span class="detail-idx" id="detailIdx">01</span>
+    <div class="detail-bar-spacer"></div>
+    <button class="icon-btn" id="detailLockBtn" title="このメモをロック">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+    </button>
+    <button class="icon-btn danger" id="detailDelBtn" title="削除">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6"/></svg>
+    </button>
+  </div>
+  <div class="detail-body">
+    <input type="text" id="detailTitleInput" class="detail-title-input" placeholder="タイトル（任意）">
+    <div class="tag-row" id="detailTagRow"></div>
+    <textarea id="detailContent" class="detail-content" placeholder="ここに文章を貼り付け"></textarea>
+  </div>
+  <div class="detail-foot">
+    <button class="mini" id="detailCopyBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="1.5"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+      この一件をコピー
+    </button>
+  </div>
+</div>
 
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -829,11 +912,17 @@ function renderList(){
       const removeBtn = b.locked ? '' : `<button data-tag="${escapeAttr(t)}" class="tag-remove">×</button>`;
       return `<span class="tag-pill" style="background:${c.bg};color:${c.fg}">${escapeHtml(t)}${removeBtn}</span>`;
     }).join('');
+    const titleHtml = b.title.trim()
+      ? `<span class="title-text">${escapeHtml(b.title.trim())}</span>`
+      : `<span class="title-text title-placeholder">（無題）</span>`;
 
     el.innerHTML = `
       <div class="block-head">
         <span class="idx">${String(i+1).padStart(2,'0')}</span>
-        <input class="title-input" type="text" placeholder="タイトル（任意）" value="${escapeAttr(b.title)}" ${b.locked ? 'readonly' : ''}>
+        <button type="button" class="title-display" data-act="open">
+          ${titleHtml}
+          <svg class="title-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+        </button>
         <button class="icon-btn${b.locked ? ' lock-active' : ''}" data-act="lock" title="${b.locked ? 'ロック解除' : 'このメモをロック'}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
         </button>
@@ -865,10 +954,9 @@ function renderList(){
     el.querySelector('[data-act="up"]').disabled = b.locked || realIndex === 0;
     el.querySelector('[data-act="down"]').disabled = b.locked || realIndex === blocks.length - 1;
     el.querySelector('[data-act="lock"]').addEventListener('click', () => toggleBlockLock(b.id));
+    el.querySelector('[data-act="open"]').addEventListener('click', () => openDetail(b.id));
 
-    const titleInput = el.querySelector('.title-input');
     const textarea = el.querySelector('.content');
-    titleInput.addEventListener('input', () => { b.title = titleInput.value; scheduleSave(); });
     textarea.addEventListener('input', () => {
       b.content = textarea.value;
       autoGrow(textarea);
@@ -914,9 +1002,139 @@ function escapeAttr(s){
   return (s || '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 }
 
+/* ---------- detail view (Notion風の全画面編集) ---------- */
+let currentDetailId = null;
+const detailView = document.getElementById('detailView');
+const detailBack = document.getElementById('detailBack');
+const detailIdx = document.getElementById('detailIdx');
+const detailLockBtn = document.getElementById('detailLockBtn');
+const detailDelBtn = document.getElementById('detailDelBtn');
+const detailTitleInput = document.getElementById('detailTitleInput');
+const detailTagRow = document.getElementById('detailTagRow');
+const detailContent = document.getElementById('detailContent');
+const detailCopyBtn = document.getElementById('detailCopyBtn');
+
+function openDetail(id){
+  const b = blocks.find(x => x.id === id);
+  if(!b) return;
+  currentDetailId = id;
+  renderDetail();
+  detailView.hidden = false;
+  requestAnimationFrame(() => {
+    if(!b.locked) detailContent.focus({ preventScroll: true });
+  });
+}
+function closeDetail(){
+  detailView.hidden = true;
+  currentDetailId = null;
+  render();
+}
+
+function renderDetail(){
+  const b = blocks.find(x => x.id === currentDetailId);
+  if(!b){ closeDetail(); return; }
+
+  const idx = blocks.findIndex(x => x.id === b.id);
+  detailIdx.textContent = String(idx + 1).padStart(2, '0');
+
+  detailTitleInput.value = b.title;
+  detailTitleInput.readOnly = b.locked;
+  detailContent.value = b.content;
+  detailContent.readOnly = b.locked;
+
+  detailLockBtn.classList.toggle('lock-active', b.locked);
+  detailLockBtn.title = b.locked ? 'ロック解除' : 'このメモをロック';
+  detailDelBtn.disabled = b.locked;
+
+  const tagsHtml = b.tags.map(t => {
+    const c = tagColor(t);
+    const removeBtn = b.locked ? '' : `<button data-tag="${escapeAttr(t)}" class="tag-remove">×</button>`;
+    return `<span class="tag-pill" style="background:${c.bg};color:${c.fg}">${escapeHtml(t)}${removeBtn}</span>`;
+  }).join('');
+  detailTagRow.innerHTML = tagsHtml + (b.locked ? '' : '<input class="tag-input" type="text" placeholder="+ タグ" list="tagSuggestions">');
+
+  detailTagRow.querySelectorAll('.tag-remove').forEach(btn => {
+    btn.addEventListener('click', () => {
+      removeTag(b, btn.getAttribute('data-tag'));
+      renderDetail();
+    });
+  });
+  const dTagInput = detailTagRow.querySelector('.tag-input');
+  if(dTagInput){
+    dTagInput.addEventListener('keydown', (e) => {
+      if(e.key === 'Enter' || e.key === ','){
+        e.preventDefault();
+        if(dTagInput.value.trim()){
+          addTag(b, dTagInput.value);
+          renderDetail();
+        }
+      }
+    });
+    dTagInput.addEventListener('blur', () => {
+      if(dTagInput.value.trim()){
+        addTag(b, dTagInput.value);
+        renderDetail();
+      }
+    });
+  }
+}
+
+detailBack.addEventListener('click', closeDetail);
+
+detailTitleInput.addEventListener('input', () => {
+  const b = blocks.find(x => x.id === currentDetailId);
+  if(!b) return;
+  b.title = detailTitleInput.value;
+  scheduleSave();
+});
+
+detailContent.addEventListener('input', () => {
+  const b = blocks.find(x => x.id === currentDetailId);
+  if(!b) return;
+  b.content = detailContent.value;
+  scheduleSave();
+});
+
+detailLockBtn.addEventListener('click', () => {
+  if(currentDetailId == null) return;
+  toggleBlockLock(currentDetailId);
+  renderDetail();
+});
+
+detailDelBtn.addEventListener('click', () => {
+  const b = blocks.find(x => x.id === currentDetailId);
+  if(!b || b.locked) return;
+  removeBlock(currentDetailId);
+  closeDetail();
+});
+
+detailCopyBtn.addEventListener('click', () => {
+  const b = blocks.find(x => x.id === currentDetailId);
+  if(!b) return;
+  copyText(combinedText([b]));
+});
+
 /* ---------- toolbar ---------- */
 document.getElementById('addBlank').addEventListener('click', () => addBlock({}, true));
 document.getElementById('addFromFiles').addEventListener('click', () => fileInput.click());
+
+document.getElementById('pasteClipboard').addEventListener('click', async () => {
+  if(!navigator.clipboard || !navigator.clipboard.readText){
+    showToast('このブラウザはクリップボード読み取りに対応していません');
+    return;
+  }
+  try{
+    const text = await navigator.clipboard.readText();
+    if(!text || !text.trim()){
+      showToast('クリップボードが空でした');
+      return;
+    }
+    addBlock({ content: text }, true);
+    showToast('貼り付けて新規メモを作成しました');
+  }catch(e){
+    showToast('クリップボードを読み取れませんでした（許可が必要な場合があります）');
+  }
+});
 
 searchInput.addEventListener('input', () => {
   searchQuery = searchInput.value;
